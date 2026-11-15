@@ -720,7 +720,8 @@ const WARM = ['오늘 하루도 고생했어요 ☕', '여기 오니까 마음�
 const WARM_REPLY = ['맞아요, 정말 그래요 😊', '저도요! 불 앞이 최고예요', '따뜻한 말 고마워요 💛', '메리 크리스마스! 🎄', '우리 내년에도 여기서 만나요', '마시멜로 구워 먹고 싶다…'];
 function loadScript(src){ return new Promise((ok, no) => { const s = document.createElement('script'); s.src = src; s.onload = ok; s.onerror = no; document.head.appendChild(s); }); }
 const send = (t, o) => { if (net.online) try{ net.ws.send(JSON.stringify(Object.assign({ t }, o || {}))); }catch(e){} };
-function wsUrl(){ if (CONFIG.server) return CONFIG.server; if (location.protocol === 'file:' || /claude|anthropic/.test(location.hostname)) return ''; return (location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host + '/ws'; }
+const LIVE_WS = 'wss://christmas-town-production.up.railway.app/ws';
+function wsUrl(){ if (CONFIG.server) return CONFIG.server; const h = location.hostname; if (location.protocol === 'file:' || /claude|anthropic/.test(h)) return ''; if (h === 'localhost' || h === '127.0.0.1' || /railway\.app$/.test(h)) return (location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host + '/ws'; return LIVE_WS; }
 function wishCount(){ $('wishCount').textContent = allWishes.length; }
 function setAll(list){ allWishes.length = 0; list.forEach(w => allWishes.push(w)); wishes.slice().forEach(w => orbGroup.remove(w.mesh)); wishes.length = 0; allWishes.slice(-CONFIG.maxWishes).forEach(w => addWish(w)); wishCount(); }
 function removeWish(id){ let i = allWishes.findIndex(w => w.id === id); if (i >= 0) allWishes.splice(i, 1); i = wishes.findIndex(w => w.id === id); if (i >= 0){ orbGroup.remove(wishes[i].mesh); wishes.splice(i, 1); } wishCount(); if (!$('listSheet').classList.contains('hidden')) renderList(); }
@@ -742,13 +743,14 @@ function onMsg(m){
     case 'err': toast(String(m.msg || '잠시 후 다시 시도해주세요').slice(0, 60)); break;
   }
 }
-function initNet(){ return new Promise(res => { const url = wsUrl(); if (!url){ localInit(); return res(); } let done = false; const fin = () => { if (!done){ done = true; res(); } };
-  const connect = () => { let ws; try{ ws = new WebSocket(url); }catch(e){ if (!done){ localInit(); fin(); } return; } net.ws = ws;
-    ws.onopen = () => { net.online = true; ws.send(JSON.stringify({ t: 'hello', id: me.id, name: me.name })); if (net.key) send('admin', { key: net.key }); };
-    ws.onmessage = e => { let m; try{ m = JSON.parse(e.data); }catch(_){ return; } onMsg(m); if (m.t === 'init') fin(); };
-    ws.onclose = () => { net.online = false; net.admin = false; [...net.others.keys()].forEach(dropRemote); if (!done){ localInit(); fin(); } else if (!net.local){ $('online').textContent = '다시 연결하는 중…'; setTimeout(connect, 3000); } };
+function initNet(){ return new Promise(res => { const url = wsUrl(); if (!url){ localInit(); return res(); } let done = false, tries = 0; const fin = () => { if (!done){ done = true; res(); } };
+  const goLocal = () => { if (!net.local && !net.online) localInit(); fin(); };
+  const connect = () => { let ws; try{ ws = new WebSocket(url); }catch(e){ goLocal(); return; } net.ws = ws; const to = setTimeout(() => { if (ws.readyState !== 1) try{ ws.close(); }catch(e){} }, 20000);
+    ws.onopen = () => { clearTimeout(to); tries = 0; net.online = true; ws.send(JSON.stringify({ t: 'hello', id: me.id, name: me.name })); if (net.key) send('admin', { key: net.key }); };
+    ws.onmessage = e => { let m; try{ m = JSON.parse(e.data); }catch(_){ return; } if (m.t === 'init') net.local = false; onMsg(m); if (m.t === 'init') fin(); };
+    ws.onclose = () => { clearTimeout(to); const was = net.online; net.online = false; net.admin = false; [...net.others.keys()].forEach(dropRemote); if (was){ $('online').textContent = '다시 연결하는 중…'; $('whoSub').textContent = '다시 연결하는 중…'; } tries++; setTimeout(connect, Math.min(15000, 1500 + tries * 1500)); };
     ws.onerror = () => {}; };
-  connect(); setTimeout(() => { if (!done){ try{ net.ws.onclose = null; net.ws.close(); }catch(e){} localInit(); fin(); } }, 5000); }); }
+  connect(); setTimeout(() => { if (!done) goLocal(); }, 6000); }); }
 async function saveWish(text, color){ sfx('wish');
   if (net.online){ send('wish', { text, color, name: me.name }); return; }
   const w = { id: uid(), name: me.name, text, color, created_at: new Date().toISOString() };
