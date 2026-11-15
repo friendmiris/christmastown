@@ -106,6 +106,7 @@
   .sw2{width:44px;height:25px;border-radius:999px;border:0;background:rgba(255,255,255,.16);position:relative;cursor:pointer;transition:background .2s} .sw2::after{content:'';position:absolute;top:3px;left:3px;width:19px;height:19px;border-radius:50%;background:#fff;transition:left .2s} .sw2.on{background:#f0b860} .sw2.on::after{left:22px}
   #vol{flex:1;accent-color:#f0b860}
   @media (max-width:760px){#who{bottom:calc(92px + env(safe-area-inset-bottom,0px));left:8px} #who .pill{padding:6px 12px 6px 10px} #who small{display:none} #soundPanel{bottom:calc(146px + env(safe-area-inset-bottom,0px));left:8px}}
+  .go{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
   .hidden{display:none!important}
   #loading{position:fixed;inset:0;z-index:30;background:var(--navy);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;transition:opacity .6s}
   #loading h1{font-size:30px;margin:0;color:var(--gold)}
@@ -170,7 +171,9 @@
   <button class="close" id="playClose" aria-label="닫기">×</button>
   <h2>마을에서 놀기</h2>
   <div class="two" style="margin:10px 0"><button class="btn primary" id="bSled"><span class="ico">🛷</span>썰매 경주</button><button class="btn" id="bShow"><span class="ico">🎆</span>불빛쇼</button></div>
-  <p class="sub" style="line-height:1.8">⛷ <b>눈썰매장</b> 게이트를 지나 비탈길 꼭대기까지 올라가면 스키를 타고 내려와요.<br>⛸ <b>스케이트장</b>에 들어가면 얼음 위를 미끄러져요.<br>🎠 <b>회전목마</b> 발판에 올라서면 목마에 타요.<br>🔥 <b>모닥불</b> 옆에서는 따뜻한 한마디를 나눠요.<br>🎄 <b>큰 나무</b>를 누르면 소원을 가까이서 봐요.</p>
+  <p class="sub" style="margin:14px 0 8px">바로 가기 · 누르면 그 앞으로 이동해요</p>
+  <div class="go"><button class="btn" id="goSlope"><span class="ico">⛷</span>눈썰매장</button><button class="btn" id="goLift"><span class="ico">🚡</span>리프트 타기</button><button class="btn" id="goRink"><span class="ico">⛸</span>스케이트장</button><button class="btn" id="goCarousel"><span class="ico">🎠</span>회전목마</button><button class="btn" id="goFire"><span class="ico">🔥</span>모닥불</button></div>
+  <p class="sub" style="margin-top:12px;line-height:1.7">눈썰매장은 꼭대기까지 걸어 올라가거나 <b>리프트</b>를 타면 스키로 내려와요. 🎄 큰 나무를 누르면 소원을 가까이서 봐요.</p>
 </div>
 
 <div id="flash"></div>
@@ -508,6 +511,30 @@ const GATE = { a: 4.36, x: Math.cos(4.36) * 21.5, z: Math.sin(4.36) * 21.5, cool
   [[36, -9], [44, 10], [52, -10], [60, 9.5], [68, -9]].forEach(([u, v]) => { const p = W(u, v, hillH(u, v)); const t = pine(p.x, p.z, 1.3); t.position.y = p.y - 0.1; });
 })();
 
+/* 리프트 */
+const slopeW = (u, v, y) => V(SLOPE.ux * u + SLOPE.px * v, y, SLOPE.uz * u + SLOPE.pz * v);
+const LIFT = { u0: 20, u1: 75.5, chairs: [], pad: null };
+const liftV = u => u < 30 ? 6 + (u - 20) * 0.15 : 7.5 + 5 * sstep((u - 30) / 12);
+const liftY = u => hillH(u, liftV(u)) + 2.6 + 2.2 * sstep((u - 20) / 8);
+function makeChair(){ const g = new THREE.Group(), gold = L('#ffcf4a'); mesh(new THREE.CylinderGeometry(0.04, 0.04, 2.5, 6), gold, 0, 1.35, -0.28, g); mesh(new THREE.BoxGeometry(1.3, 0.1, 0.6), L('#d8344c'), 0, 0.05, 0, g); mesh(new THREE.BoxGeometry(1.3, 0.7, 0.08), L('#d8344c'), 0, 0.42, -0.28, g); mesh(new THREE.BoxGeometry(1.34, 0.08, 0.1), L('#f4f7ff'), 0, 0.8, -0.28, g); mesh(new THREE.BoxGeometry(1.3, 0.05, 0.05), gold, 0, -0.35, 0.3, g); [-0.62, 0.62].forEach(x => mesh(new THREE.BoxGeometry(0.05, 0.4, 0.05), gold, x, -0.15, 0.3, g)); return g; }
+(function(){ const metal = L('#2b3350'), seg = new THREE.CylinderGeometry(0.035, 0.035, 1, 5), up = V(0, 1, 0);
+  for (let u = LIFT.u0; u < LIFT.u1; u += 1.5){ const a = slopeW(u, liftV(u), liftY(u)), b = slopeW(u + 1.5, liftV(u + 1.5), liftY(u + 1.5)), m = mesh(seg, metal, (a.x + b.x) / 2, (a.y + b.y) / 2, (a.z + b.z) / 2); m.scale.y = a.distanceTo(b); m.quaternion.setFromUnitVectors(up, b.clone().sub(a).normalize()); }
+  for (let u = 34; u <= 74; u += 8){ const v = liftV(u); if (v - pathV(u) < 4.8) continue; const gy = hillH(u, v), top = liftY(u), p = slopeW(u, v, 0); mesh(new THREE.CylinderGeometry(0.14, 0.2, top - gy + 0.4, 8), metal, p.x, (gy + top + 0.4) / 2, p.z); mesh(new THREE.BoxGeometry(0.5, 0.2, 0.5), L('#f4f7ff'), p.x, top + 0.45, p.z); bulb(slopeW(u, v, top + 0.8), 1); bulb(slopeW(u, v, gy + 1.6)); }
+  const st = new THREE.Group(), pp = slopeW(LIFT.u0, liftV(LIFT.u0), 0); st.position.copy(pp); st.rotation.y = Math.atan2(-GATE.x, -GATE.z); scene.add(st); LIFT.pad = pp;
+  [-1.5, 1.5].forEach(x => mesh(new THREE.CylinderGeometry(0.12, 0.12, 3.4, 8), L('#f4f7ff'), x, 1.7, 0.6, st)); mesh(new THREE.BoxGeometry(3.6, 0.25, 1.6), L('#b8324a'), 0, 3.5, 0.6, st); mesh(new THREE.BoxGeometry(3.8, 0.14, 1.8), L('#f4f7ff'), 0, 3.7, 0.6, st);
+  signPlane(3.4, 0.8, signTex('🚡 리프트', '#2a6fd0'), 2.85, st); const pad = mesh(new THREE.CircleGeometry(1.5, 28), new THREE.MeshBasicMaterial({ color: C('#7fd0ff'), transparent: true, opacity: 0.55 }), 0, 0.06, 0, st); pad.rotation.x = -Math.PI / 2; LIFT.padMesh = pad;
+  groundGlow(0, 0, 3.4, '#7fd0ff', 0.55, st); st.updateMatrixWorld(true); bulbLine(V(-1.8, 3.85, 1.45), V(1.8, 3.85, 1.45), 9, 0, st);
+  const tp = slopeW(LIFT.u1, liftV(LIFT.u1), hillH(LIFT.u1, liftV(LIFT.u1))); mesh(new THREE.CylinderGeometry(0.16, 0.2, 5.2, 8), metal, tp.x, tp.y + 2.6, tp.z); mesh(new THREE.CylinderGeometry(0.7, 0.7, 0.14, 16), L('#ffcf4a'), tp.x, tp.y + 5.0, tp.z); bulb(V(tp.x, tp.y + 5.5, tp.z), 1);
+  for (let k = 0; k < 5; k++){ const c = makeChair(); scene.add(c); LIFT.chairs.push(c); }
+})();
+const lift = { on: false, u: 0, cool: 0 };
+function liftPlace(obj, u, dy){ const v = liftV(u), p = slopeW(u, v, liftY(u) - 2.6 + (dy || 0)); obj.position.copy(p); const d = 0.5, q = slopeW(u + d, liftV(u + d), 0); obj.rotation.y = Math.atan2(q.x - p.x, q.z - p.z); }
+function liftStart(){ if (lift.on || ski.on || ride.on) return; lift.on = true; lift.u = LIFT.u0; me.target = null; me.vel.x = me.vel.z = 0; closeAll(); player.userData.chair.visible = true; player.userData.moving = false; sfx('gift'); toast('🚡 리프트 출발! 꼭대기까지 자동으로 올라가요'); }
+function liftTick(dt, t, now){ lift.u += 6.2 * dt; liftPlace(player, Math.min(lift.u, LIFT.u1), Math.sin(t * 2.2) * 0.06); const u = player.userData; u.moving = false; u.tilt = 0;
+  const ty = Math.atan2(-0.75 * SLOPE.ux - 0.65 * SLOPE.px, -0.75 * SLOPE.uz - 0.65 * SLOPE.pz); let dy = ty - cam.yaw; dy = Math.atan2(Math.sin(dy), Math.cos(dy)); cam.yaw += dy * Math.min(1, dt * 2.5); cam.pitch += (0.3 - cam.pitch) * Math.min(1, dt * 2.5); cam.tDist += (15 - cam.tDist) * Math.min(1, dt * 2);
+  if (lift.u >= LIFT.u1){ lift.on = false; lift.cool = now + 4000; u.chair.visible = false; const p = slopeW(71.3, pathV(71.3), hillH(71.3, pathV(71.3))); player.position.copy(p); player.rotation.y = Math.atan2(SLOPE.ux, SLOPE.uz); u.vy = 6; burst(p.x, p.y + 1.5, p.z, 30, 4, null, 1, 3); toast('꼭대기 도착! 앞으로 조금만 가면 스키 출발 ⛷'); } }
+function goTo(tx, tz, back, msg){ if (ski.on || lift.on) return toast('지금은 이동할 수 없어요. 잠깐만요!'); if (ride.on) rideExit(); closeAll(); const d = Math.hypot(tx, tz) || 1, q = pushOut(tx - tx / d * back, tz - tz / d * back); player.position.set(q[0], groundY(q[0], q[1]), q[1]); me.target = null; me.vel.x = me.vel.z = 0; player.rotation.y = Math.atan2(tx - q[0], tz - q[1]); cam.yaw = Math.atan2(q[0] - tx, q[1] - tz); cam.pitch = 0.3; cam.tDist = 13; ride.cool = performance.now() + 1500; burst(q[0], 1.4, q[1], 36, 4.5, null, 1, 3); sfx('hop'); if (msg) toast(msg); }
+
 /* 스케이트장 */
 const RK = { x: Math.cos(0.77) * 40, z: Math.sin(0.77) * 40, r: 8 };
 (function(){ const g = new THREE.Group(); g.position.set(RK.x, 0, RK.z); scene.add(g); const flat = m => { m.rotation.x = -Math.PI / 2; return m; };
@@ -674,6 +701,7 @@ store.set('sv_id', me.vid); me.id = String(me.vid).slice(0, 24) + '.' + Math.ran
 const player = makeAvatar(me.look, me.name || '나');
 player.position.set(0, 0, 13);
 let mode = 'village', view = 'splash';
+(function(){ const c = makeChair(); c.visible = false; player.add(c); player.userData.chair = c; })();
 const ski = { on: false, u: 0, v: 0, sp: 0, t0: 0, n: 0, cool: 0, giftAt: 0, touch: 0 }, ride = { on: false, i: 0, cool: 0 };
 (function(){ const g = new THREE.Group(); [-0.22, 0.22].forEach(x => { mesh(new THREE.BoxGeometry(0.17, 0.05, 2.1), L('#ff8a2a'), x, 0.03, 0.15, g); mesh(new THREE.BoxGeometry(0.17, 0.05, 0.3), L('#ff8a2a'), x, 0.1, 1.28, g).rotation.x = -0.6; }); g.visible = false; player.add(g); player.userData.skis = g; })();
 const tv = { yaw: 0, pitch: 0.12, dist: 19, tDist: 19, cy: 9.8, fy: 9.8, i: -1 };
@@ -914,7 +942,7 @@ function pointerEnd(e){
   wishes.forEach(w => { const p = w.mesh.position; if (p.x * cx + p.z * cz < 0) return; tmpV.copy(p).project(camera); if (tmpV.z > 1) return; const d = Math.hypot((tmpV.x + 1) / 2 * innerWidth - e.clientX, (1 - tmpV.y) / 2 * innerHeight - e.clientY); if (d < pd){ pd = d; po = w; } });
   if (po && me.entered){ if (view !== 'tree') enterTree(); focusWish(po); return; }
   if (po){ showCard(po); return; }
-  if (!me.entered || view === 'tree' || ski.on || ride.on) return;
+  if (!me.entered || view === 'tree' || ski.on || ride.on || lift.on) return;
   tmpV.copy(player.position).setY(player.position.y + 1.2).project(camera); if (Math.hypot((tmpV.x + 1) / 2 * innerWidth - e.clientX, (1 - tmpV.y) / 2 * innerHeight - e.clientY) < 38){ hop(); return; }
   let tap = null, bd = 46; targets().forEach(o => { if (o.me) return; tmpV.copy(o.av.position).setY(1.2).project(camera); if (tmpV.z > 1) return; const d = Math.hypot((tmpV.x + 1) / 2 * innerWidth - e.clientX, (1 - tmpV.y) / 2 * innerHeight - e.clientY); if (d < bd){ bd = d; tap = o; } });
   if (tap){ myThrow(tap); return; }
@@ -923,7 +951,7 @@ function pointerEnd(e){
 }
 canvas.addEventListener('pointerup', pointerEnd); canvas.addEventListener('pointercancel', pointerEnd);
 canvas.addEventListener('wheel', e => { if (view === 'tree') tv.tDist = clamp(tv.tDist + e.deltaY * 0.012, 9, 28); else cam.tDist = clamp(cam.tDist + e.deltaY * 0.012, 5, 30); e.preventDefault(); }, { passive: false });
-function hop(){ if (!me.entered || mode !== 'village' || ski.on || ride.on) return; const u = player.userData, p = player.position; if (Math.hypot(p.x - RK.x, p.z - RK.z) < RK.r){ if (!(u.spin > 0)){ u.spin = 1; burst(p.x, 0.6, p.z, 26, 3, PC.ice, 0.8, 2); } return; } if (u.hop === 0){ u.vy = 7; hopFlag = true; sfx('hop'); } }
+function hop(){ if (!me.entered || mode !== 'village' || ski.on || ride.on || lift.on) return; const u = player.userData, p = player.position; if (Math.hypot(p.x - RK.x, p.z - RK.z) < RK.r){ if (!(u.spin > 0)){ u.spin = 1; burst(p.x, 0.6, p.z, 26, 3, PC.ice, 0.8, 2); } return; } if (u.hop === 0){ u.vy = 7; hopFlag = true; sfx('hop'); } }
 function movePlayer(dt){
   const ix = (keys['arrowright'] || keys['d'] ? 1 : 0) - (keys['arrowleft'] || keys['a'] ? 1 : 0), iz = (keys['arrowup'] || keys['w'] ? 1 : 0) - (keys['arrowdown'] || keys['s'] ? 1 : 0);
   let vx = 0, vz = 0; const s = Math.sin(cam.yaw), c = Math.cos(cam.yaw), p = player.position, u = player.userData;
@@ -996,7 +1024,7 @@ $('lookOk').onclick = () => {
 $('lookClose').onclick = () => $('lookOk').onclick();
 $('bLook').onclick = openLook;
 $('bBall').onclick = () => myThrow();
-$('bSled').onclick = () => { closeAll(); if (ski.on || ride.on) return; sledStart(); }; $('sExit').onclick = sledExit; $('eBack').onclick = sledExit; $('eAgain').onclick = sledStart;
+$('bSled').onclick = () => { closeAll(); if (ski.on || ride.on || lift.on) return; sledStart(); }; $('sExit').onclick = sledExit; $('eBack').onclick = sledExit; $('eAgain').onclick = sledStart;
 $('bWish').onclick = () => { closeAll(); $('wishSheet').classList.remove('hidden'); setTimeout(() => $('wishText').focus(), 50); };
 $('wishClose').onclick = () => $('wishSheet').classList.add('hidden');
 $('wishText').addEventListener('input', e => $('wishLen').textContent = e.target.value.length);
@@ -1062,6 +1090,11 @@ $('bList').onclick = () => { closeAll(); renderList(); $('listSheet').classList.
 $('listClose').onclick = () => $('listSheet').classList.add('hidden');
 $('adminOff').onclick = () => { net.key = ''; net.admin = false; store.set('sv_admin', ''); $('adminOff').classList.add('hidden'); if (net.online){ net.off = true; send('admin', { key: '' }); } renderList(); toast('관리자 모드를 껐어요'); };
 $('adminGo').onclick = () => { const k = $('adminKey').value.trim(); if (!k) return; $('adminKey').value = ''; if (net.online){ net.key = k; send('admin', { key: k }); } else { net.admin = true; toast('미리보기에서는 비밀번호 확인 없이 켜져요 (내 브라우저의 소원만 지워져요)'); renderList(); } };
+$('goSlope').onclick = () => goTo(GATE.x, GATE.z, 4.5, '⛷ 눈썰매장 앞이에요. 걸어 올라가거나 옆의 리프트를 타세요');
+$('goLift').onclick = () => { if (ski.on || lift.on) return toast('지금은 탈 수 없어요. 잠깐만요!'); if (ride.on) rideExit(); closeAll(); lift.cool = 0; player.position.set(LIFT.pad.x, 0, LIFT.pad.z); liftStart(); };
+$('goRink').onclick = () => goTo(RK.x, RK.z, 10.8, '⛸ 스케이트장 앞이에요. 얼음 위로 들어가 보세요');
+$('goCarousel').onclick = () => goTo(CR.x, CR.z, 7.6, '🎠 회전목마 앞이에요. 발판에 올라서면 타요');
+$('goFire').onclick = () => goTo(FIRE.x, FIRE.z, 4.1, '🔥 모닥불 앞이에요. 따뜻한 한마디를 골라보세요');
 $('bPlay').onclick = () => { closeAll(); $('playSheet').classList.remove('hidden'); };
 $('playClose').onclick = () => $('playSheet').classList.add('hidden');
 function enterZen(){ if (ski.on || ride.on){ toast('내려온 다음에 눈멍해요'); return; } closeAll(); view = 'zen'; me.target = null; ['hud', 'who', 'bar', 'hint', 'fireBar'].forEach(i => $(i).classList.add('hidden')); $('zen').classList.remove('hidden'); snowPoints.material.size = 0.62; }
@@ -1133,7 +1166,8 @@ function villageTick(dt, t, now){
   CR.rot.rotation.y += dt * 0.55; CR.mounts.forEach((m, i) => { m.position.y = 1.5 + Math.sin(t * 2.2 + i * Math.PI) * 0.32; });
   SLOPE.stars.forEach(st => { st.g.rotation.y = t * 2.5; });
   if (me.entered) rideTick(dt, t, now);
-  if (ski.on) skiTick(dt, t, now); else if (ride.on){} else if (me.entered && view === 'play') movePlayer(dt); else if (me.entered) player.userData.moving = false; else { player.userData.moving = false; let d = cam.yaw - player.rotation.y; d = Math.atan2(Math.sin(d), Math.cos(d)); player.rotation.y += d * Math.min(1, dt * 8); }
+  LIFT.chairs.forEach((c, k) => { const span = LIFT.u1 - LIFT.u0; liftPlace(c, LIFT.u0 + ((t * 3.2 + k * span / 5) % span), 0); c.position.y += 0.02; }); LIFT.padMesh.material.opacity = 0.4 + 0.25 * Math.sin(t * 3);
+  if (lift.on) liftTick(dt, t, now); else if (ski.on) skiTick(dt, t, now); else if (ride.on){} else if (me.entered && view === 'play') movePlayer(dt); else if (me.entered) player.userData.moving = false; else { player.userData.moving = false; let d = cam.yaw - player.rotation.y; d = Math.atan2(Math.sin(d), Math.cos(d)); player.rotation.y += d * Math.min(1, dt * 8); }
   animateAvatar(player, dt, t); npcTick(dt); npcs.forEach(n => animateAvatar(n.av, dt, t));
   net.others.forEach((o, id) => {
     if (now - o.seen > 12000){ dropRemote(id); return; }
@@ -1149,7 +1183,8 @@ function villageTick(dt, t, now){
   metT -= dt; if (metT <= 0){ metT = 3 + R() * 5; const a = R() * 6.283, x0 = Math.cos(a) * 120, z0 = Math.sin(a) * 120, y0 = 80 + R() * 40, vx = -Math.sin(a) * 70, vz = Math.cos(a) * 70; for (let k = 0; k < 16; k++) emit(x0 - vx * k * 0.012, y0 + k * 0.25, z0 - vz * k * 0.012, vx, -22, vz, PC.white, 0.9 - k * 0.03, 0); }
   if (me.entered && view === 'play'){ const pp = player.position;
     const nf = Math.hypot(pp.x - FIRE.x, pp.z - FIRE.z) < 5.4; if (nf !== !!FIRE.near){ FIRE.near = nf; $('fireBar').classList.toggle('hidden', !nf); if (nf) toast('🔥 모닥불 앞이에요. 따뜻한 한마디를 눌러보세요'); } if (nf) player.userData.snowT = 0;
-    const uv = slopeUV(pp.x, pp.z); if (!ski.on && !ride.on && now > ski.cool && uv[0] > 73 && Math.abs(uv[1]) < 4.2) skiStart(uv[0], uv[1]); }
+    if (!lift.on && !ski.on && !ride.on && now > lift.cool && Math.hypot(pp.x - LIFT.pad.x, pp.z - LIFT.pad.z) < 1.5) liftStart();
+    const uv = slopeUV(pp.x, pp.z); if (!lift.on && !ski.on && !ride.on && now > ski.cool && uv[0] > 73 && Math.abs(uv[1]) < 4.2) skiStart(uv[0], uv[1]); }
   if (view !== 'play' && FIRE.near){ FIRE.near = false; $('fireBar').classList.add('hidden'); }
   chimneys.forEach((c, i) => { if (R() < 0.12) emit(c.x + (R() - 0.5) * 0.3, c.y, c.z + (R() - 0.5) * 0.3, 0.3 + (R() - 0.5) * 0.3, 0.9 + R() * 0.6, (R() - 0.5) * 0.3, PC.smoke, 2.4, -0.2); });
   if (view === 'zen'){ const a = t * 0.045 + 2, r = 20 + Math.sin(t * 0.07) * 3.5; camPos.set(Math.sin(a) * r, 7.5 + Math.sin(t * 0.09) * 1.6, Math.cos(a) * r); camera.position.lerp(camPos, Math.min(1, dt * 0.9)); lookV.set(0, 9.5 + Math.sin(t * 0.05) * 2, 0); camera.lookAt(lookV); }
