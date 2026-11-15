@@ -34,7 +34,7 @@ wss.on('connection', ws => {
       if (c) return; const id = str(m.id, 40) || Math.random().toString(36).slice(2);
       const old = clients.get(id); if (old) { try { old.ws.close(); } catch (e) {} }
       c = { id, ws, name: str(m.name, 10) || '펭귄', admin: false, cd: {}, pos: null }; clients.set(id, c);
-      if (!db.seen[id]) { if (Object.keys(db.seen).length > 20000) db.seen = {}; db.seen[id] = 1; db.total++; save(); }
+      const vid = str(m.vid, 40) || id; if (!db.seen[vid]) { if (Object.keys(db.seen).length > 20000) db.seen = {}; db.seen[vid] = 1; db.total++; save(); }
       sendTo(ws, { t: 'init', wishes: db.wishes.slice(-300) });
       for (const o of clients.values()) if (o !== c && o.pos) sendTo(ws, o.pos);
       return count();
@@ -60,4 +60,8 @@ wss.on('connection', ws => {
   ws.on('error', () => {});
 });
 setInterval(() => { for (const ws of wss.clients) { if (!ws.isAlive) { ws.terminate(); continue; } ws.isAlive = false; try { ws.ping(); } catch (e) {} } }, 30000);
+// 무료(서버리스) 플랜은 서버가 밖으로 보내는 통신이 10분쯤 없으면 재워버립니다.
+// 접속자가 있는 동안에는 4분마다 자기 주소로 가벼운 요청을 보내 깨어 있게 하고, 아무도 없으면 그대로 잠들게 둡니다.
+const SELF = process.env.RAILWAY_PUBLIC_DOMAIN;
+if (SELF) setInterval(() => { if (!clients.size) return; try { require('https').get({ host: SELF, path: '/healthz', timeout: 8000 }, r => r.resume()).on('error', () => {}).on('timeout', function () { this.destroy(); }); } catch (e) {} }, 240000);
 server.listen(PORT, () => console.log('크리스마스 마을 서버 실행 중 :' + PORT + (ADMIN_KEY ? '' : ' (ADMIN_KEY 미설정: 관리자 삭제 꺼짐)')));

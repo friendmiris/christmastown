@@ -666,11 +666,11 @@ function animateAvatar(g, dt, t){
 
 /* ═════════ 내 캐릭터 ═════════ */
 const me = {
-  id: store.get('sv_id', null) || uid(), name: store.get('sv_name', ''),
+  vid: store.get('sv_id', null) || uid(), id: '', name: store.get('sv_name', ''),
   look: Object.assign({ body: OPT.body[0], hat: 'beanie', hatColor: OPT.color[0], scarf: OPT.color[1], face: 'smile', acc: 'none', fx: 'none' }, store.get('sv_look', {})),
   target: null, entered: false, vel: { x: 0, z: 0 }, gifts: store.get('sv_gifts', 1), hits: 0
 };
-store.set('sv_id', me.id);
+store.set('sv_id', me.vid); me.id = String(me.vid).slice(0, 24) + '.' + Math.random().toString(36).slice(2, 8); // 탭마다 다른 접속 id
 const player = makeAvatar(me.look, me.name || '나');
 player.position.set(0, 0, 13);
 let mode = 'village', view = 'splash';
@@ -743,12 +743,16 @@ function onMsg(m){
     case 'err': toast(String(m.msg || '잠시 후 다시 시도해주세요').slice(0, 60)); break;
   }
 }
+let movingWishes = false;
+function moveLocalWishes(){ if (movingWishes) return; const q = store.get('sv_wishes', []).filter(w => w && w.text).slice(0, 40); if (!q.length) return; movingWishes = true;
+  const step = () => { if (!q.length){ movingWishes = false; return; } if (!net.online){ movingWishes = false; return; } const w = q.shift(), wp = wishParts(w); send('wish', { name: String(w.name || me.name || '펭귄').slice(0, 10), text: String(w.text).slice(0, 80), color: wp[0] + '|' + wp[1] }); store.set('sv_wishes', q); setTimeout(step, 8600); };
+  toast('이 브라우저에만 저장돼 있던 소원 ' + q.length + '개를 마을 나무로 옮기는 중이에요'); step(); }
 function initNet(){ return new Promise(res => { const url = wsUrl(); if (!url){ localInit(); return res(); } let done = false, tries = 0; const fin = () => { if (!done){ done = true; res(); } };
   const goLocal = () => { if (!net.local && !net.online) localInit(); fin(); };
   const connect = () => { let ws; try{ ws = new WebSocket(url); }catch(e){ goLocal(); return; } net.ws = ws; const to = setTimeout(() => { if (ws.readyState !== 1) try{ ws.close(); }catch(e){} }, 20000);
-    ws.onopen = () => { clearTimeout(to); tries = 0; net.online = true; ws.send(JSON.stringify({ t: 'hello', id: me.id, name: me.name })); if (net.key) send('admin', { key: net.key }); };
-    ws.onmessage = e => { let m; try{ m = JSON.parse(e.data); }catch(_){ return; } if (m.t === 'init') net.local = false; onMsg(m); if (m.t === 'init') fin(); };
-    ws.onclose = () => { clearTimeout(to); const was = net.online; net.online = false; net.admin = false; [...net.others.keys()].forEach(dropRemote); if (was){ $('online').textContent = '다시 연결하는 중…'; $('whoSub').textContent = '다시 연결하는 중…'; } tries++; setTimeout(connect, Math.min(15000, 1500 + tries * 1500)); };
+    ws.onopen = () => { clearTimeout(to); tries = 0; net.online = true; ws.send(JSON.stringify({ t: 'hello', id: me.id, vid: me.vid, name: me.name })); if (net.key) send('admin', { key: net.key }); };
+    ws.onmessage = e => { let m; try{ m = JSON.parse(e.data); }catch(_){ return; } if (m.t === 'init') net.local = false; onMsg(m); if (m.t === 'init'){ fin(); moveLocalWishes(); } };
+    ws.onclose = () => { clearTimeout(to); const was = net.online; net.online = false; net.admin = false; if (was){ $('online').textContent = '다시 연결하는 중…'; $('whoSub').textContent = '다시 연결하는 중…'; } tries++; setTimeout(connect, Math.min(12000, tries === 1 ? 800 : tries * 1500)); };
     ws.onerror = () => {}; };
   connect(); setTimeout(() => { if (!done) goLocal(); }, 6000); }); }
 async function saveWish(text, color){ sfx('wish');
