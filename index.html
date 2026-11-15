@@ -172,7 +172,7 @@
   <h2>마을에서 놀기</h2>
   <div class="two" style="margin:10px 0"><button class="btn primary" id="bSled"><span class="ico">🛷</span>썰매 경주</button><button class="btn" id="bShow"><span class="ico">🎆</span>불빛쇼</button></div>
   <p class="sub" style="margin:14px 0 8px">바로 가기 · 누르면 그 앞으로 이동해요</p>
-  <div class="go"><button class="btn" id="goSlope"><span class="ico">⛷</span>눈썰매장</button><button class="btn" id="goLift"><span class="ico">🚡</span>리프트 타기</button><button class="btn" id="goRink"><span class="ico">⛸</span>스케이트장</button><button class="btn" id="goCarousel"><span class="ico">🎠</span>회전목마</button><button class="btn" id="goFire"><span class="ico">🔥</span>모닥불</button></div>
+  <div class="go"><button class="btn" id="goTree"><span class="ico">🎄</span>트리 앞</button><button class="btn" id="goSlope"><span class="ico">⛷</span>눈썰매장</button><button class="btn" id="goLift"><span class="ico">🚡</span>리프트 타기</button><button class="btn" id="goRink"><span class="ico">⛸</span>스케이트장</button><button class="btn" id="goCarousel"><span class="ico">🎠</span>회전목마</button><button class="btn" id="goFire"><span class="ico">🔥</span>모닥불</button></div>
   <p class="sub" style="margin-top:12px;line-height:1.7">눈썰매장은 꼭대기까지 걸어 올라가거나 <b>리프트</b>를 타면 스키로 내려와요. 🎄 큰 나무를 누르면 소원을 가까이서 봐요.</p>
 </div>
 
@@ -237,6 +237,7 @@
   <div class="orb" style="background:#ffd166;color:#ffd166"></div>
   <div class="who" id="gotFrom"></div>
   <div class="txt" id="gotName"></div>
+  <div class="who" id="gotWhere" style="margin:-4px 0 10px;line-height:1.5"></div>
   <button id="gotWear">바로 착용</button> <button id="gotClose" style="background:#8a6a3c">닫기</button>
 </div>
 
@@ -851,7 +852,8 @@ function eatGift(from){ sfx('gift');
   const left = Object.keys(ITEMS).filter(k => !unlocked.has(k));
   if (!left.length){ toast((from ? from + '님의 선물! ' : '') + '냠! 아이템은 이미 다 모았어요 🎉'); showUntil = performance.now() + 4000; return; }
   const key = pick(left); unlocked.add(key); store.set('sv_unlocked', [...unlocked]); lastGot = key; renderLookChips();
-  closeAll(); $('gotFrom').textContent = from ? from + '님이 준 선물을 냠!' : '선물을 냠!'; $('gotName').textContent = '새 아이템\n「' + ITEMS[key] + '」'; $('got').classList.remove('hidden');
+  closeAll(); $('gotFrom').textContent = from ? from + '님이 준 선물을 냠!' : '선물을 냠!'; const isOrn = key.indexOf('orn:') === 0, where = { body: '펭귄 꾸미기의 몸 색', hat: '펭귄 꾸미기의 모자', acc: '펭귄 꾸미기의 소품', fx: '펭귄 꾸미기의 효과' }[key.slice(0, key.indexOf(':'))];
+  $('gotName').textContent = '새 아이템\n「' + ITEMS[key] + '」'; $('gotWhere').textContent = isOrn ? '소원을 걸 때 고르는 나무 장식이에요. 펭귄에게 입히는 건 아니에요.' : where + '에서 고를 수 있어요.'; $('gotWear').textContent = isOrn ? '이 장식으로 소원 걸기' : '바로 착용'; $('got').classList.remove('hidden');
 }
 
 /* ═════════ 썰매 ═════════ */
@@ -1066,7 +1068,7 @@ function takePhoto(){
 }
 $('photoClose').onclick = () => $('photo').classList.add('hidden');
 $('gotClose').onclick = () => $('got').classList.add('hidden');
-$('gotWear').onclick = () => { if (lastGot){ const [k, v] = [lastGot.slice(0, lastGot.indexOf(':')), lastGot.slice(lastGot.indexOf(':') + 1)]; if (k === 'orn') ornShape = v; else me.look[k] = v; refreshLook(); renderLookChips(); } $('got').classList.add('hidden'); };
+$('gotWear').onclick = () => { if (lastGot){ const [k, v] = [lastGot.slice(0, lastGot.indexOf(':')), lastGot.slice(lastGot.indexOf(':') + 1)]; if (k === 'orn'){ ornShape = v; renderLookChips(); $('got').classList.add('hidden'); $('bWish').click(); return; } me.look[k] = v; refreshLook(); renderLookChips(); } $('got').classList.add('hidden'); };
 
 /* ═════════ 말풍선 · 소원 모음 · 관리자 · 눈멍 ═════════ */
 function say(av, text){ const u = av.userData; if (u.bubble){ av.remove(u.bubble); disposeTree(u.bubble); }
@@ -1094,6 +1096,7 @@ $('goSlope').onclick = () => goTo(GATE.x, GATE.z, 4.5, '⛷ 눈썰매장 앞이�
 $('goLift').onclick = () => { if (ski.on || lift.on) return toast('지금은 탈 수 없어요. 잠깐만요!'); if (ride.on) rideExit(); closeAll(); lift.cool = 0; player.position.set(LIFT.pad.x, 0, LIFT.pad.z); liftStart(); };
 $('goRink').onclick = () => goTo(RK.x, RK.z, 10.8, '⛸ 스케이트장 앞이에요. 얼음 위로 들어가 보세요');
 $('goCarousel').onclick = () => goTo(CR.x, CR.z, 7.6, '🎠 회전목마 앞이에요. 발판에 올라서면 타요');
+$('goTree').onclick = () => goTo(0, -0.001, 12.5, '🎄 큰 나무 앞이에요. 나무나 장식을 누르면 소원을 가까이서 봐요');
 $('goFire').onclick = () => goTo(FIRE.x, FIRE.z, 4.1, '🔥 모닥불 앞이에요. 따뜻한 한마디를 골라보세요');
 $('bPlay').onclick = () => { closeAll(); $('playSheet').classList.remove('hidden'); };
 $('playClose').onclick = () => $('playSheet').classList.add('hidden');
